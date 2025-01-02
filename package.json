@@ -2,6 +2,9 @@
   "name": "notetakingappweb",
   "version": "1.0.0",
   "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "accepts": "^1.3.8",
     "ansi-regex": "^5.0.1",
@@ -166,7 +169,7 @@
     "start": "node server.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Aisha",
   "license": "ISC",
   "description": ""
 }

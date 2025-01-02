@@ -1,86 +1,82 @@
-const { ipcRenderer } = require("electron")
-let title = document.getElementById("title")
-let note = document.getElementById("note")
-let saveBtn = document.getElementById("save-btn")
-let list = document.getElementById("list")
+let title = document.getElementById("title");
+let note = document.getElementById("note");
+let saveBtn = document.getElementById("save-btn");
+let list = document.getElementById("list");
 
 let notes = [];
 
-function loadNotes() {
+// Load all notes
+async function loadNotes() {
+    const response = await fetch('/api/notes'); // Fetch notes from server
+    notes = await response.json();
+
     list.innerHTML = "";
-    // Sort notes by pinned status (true first) and render them
-    const sortedNotes = [...notes].sort((a, b) => b.pinned - a.pinned || b.timestamp - a.timestamp);
-    sortedNotes.forEach((note) => {
-        const div = document.createElement('div');
-        div.classList.add('list_ele');
-        if (note.pinned) div.classList.add('pinned');
+    notes
+        .sort((a, b) => b.pinned - a.pinned || b.timestamp - a.timestamp)
+        .forEach(note => {
+            const div = document.createElement('div');
+            div.classList.add('list_ele');
+            if (note.pinned) div.classList.add('pinned');
 
-        const titleElement = document.createElement('h1'); // Title
-        titleElement.textContent = note.title;
+            const titleElement = document.createElement('h1');
+            titleElement.textContent = note.title;
 
-        const content = document.createElement('p'); // Content
-        content.textContent = note.note;
+            const content = document.createElement('p');
+            content.textContent = note.note;
 
-        const deleteButton = document.createElement('button'); // Delete button
-        deleteButton.textContent = 'Delete';
-        deleteButton.classList.add('delete-btn');
-        deleteButton.onclick = () => deleteNote(note._id);
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.classList.add('delete-btn');
+            deleteButton.onclick = () => deleteNote(note._id);
 
-        const pinButton = document.createElement('button'); // Pin button
-        pinButton.textContent = note.pinned ? 'Unpin' : 'Pin';
-        pinButton.classList.add('pin-btn');
-        pinButton.onclick = () => togglePin(note._id);
+            const pinButton = document.createElement('button');
+            pinButton.textContent = note.pinned ? 'Unpin' : 'Pin';
+            pinButton.classList.add('pin-btn');
+            pinButton.onclick = () => togglePin(note._id);
 
-        div.appendChild(titleElement);
-        div.appendChild(content);
-        div.appendChild(deleteButton);
-        div.appendChild(pinButton);
-        list.appendChild(div);
-    });
+            div.appendChild(titleElement);
+            div.appendChild(content);
+            div.appendChild(deleteButton);
+            div.appendChild(pinButton);
+            list.appendChild(div);
+        });
 }
 
-window.onload = async () => {
-  notes = await ipcRenderer.invoke("get_data")
-  loadNotes()
-}
-
+// Save a note
 saveBtn.onclick = async () => {
-    if(title.value !== "" && note.value !=="") {
-        let _note = {
+    if (title.value !== "" && note.value !== "") {
+        const newNote = {
             title: title.value,
             note: note.value,
-            pinned: false, // Default to not pinned 
-            timestamp: Date.now() // Add timestamp for sorting
-        }
-        
-        ipcRenderer.send('save_note', _note) // Save note
+            pinned: false,
+            timestamp: Date.now(),
+        };
+
+        await fetch('/api/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newNote)
+        });
 
         title.value = "";
         note.value = "";
-
-        // Fetch updated notes after saving
-        notes = await ipcRenderer.invoke("get_data")
-        loadNotes()
-
+        loadNotes(); // Reload the notes
     } else {
-        window.alert("Please fill all the fields and try again")
+        alert("Please fill all the fields and try again");
     }
+};
+
+// Delete a note
+async function deleteNote(id) {
+    await fetch(`/api/notes/${id}`, { method: 'DELETE' });
+    loadNotes();
 }
 
-// Function to delete a note
-function deleteNote(id) {
-    ipcRenderer.send('delete_note', id); // Send delete command
-    notes = notes.filter(note => note._id !== id); // Remove from local array
-    loadNotes(); // Refresh view
+// Toggle pin status
+async function togglePin(id) {
+    await fetch(`/api/notes/${id}`, { method: 'PATCH' });
+    loadNotes();
 }
 
-function togglePin(id) {
-    // Notify backend to toggle pin
-    ipcRenderer.send('toggle_pin', id);
-
-    // Listen for the updated event and refresh the notes
-    ipcRenderer.once('pin_updated', async () => {
-        notes = await ipcRenderer.invoke("get_data"); // Fetch updated notes
-        loadNotes(); // Re-render the notes
-    });
-}
+// Load notes on startup
+window.onload = loadNotes;
